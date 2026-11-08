@@ -5299,8 +5299,8 @@ msgstr "V chatu @botfather zadejte příkaz <code>/newbot</code>. Podle pokynů 
 msgid "Once you have created your bot, @botfather will provide you with the authentication token to use your bot. Enter that token below."
 msgstr "Po vytvoření bota vám @botfather poskytne ověřovací token pro používání bota. Tento token zadejte níže."
 
-msgid "You can quickly connect TextIt WhatsApp numbers by entering the credentials below. You can find the API endpoint and access token by visiting your TextIt WhatsApp account page."
-msgstr "Čísla aplikace TextIt WhatsApp můžete rychle připojit zadáním níže uvedených přihlašovacích údajů. Koncový bod API a přístupový token najdete na stránce svého účtu TextIt WhatsApp."
+msgid "You can quickly connect RapidPro WhatsApp numbers by entering the credentials below. You can find the API endpoint and access token by visiting your RapidPro WhatsApp account page."
+msgstr "Čísla aplikace RapidPro WhatsApp můžete rychle připojit zadáním níže uvedených přihlašovacích údajů. Koncový bod API a přístupový token najdete na stránce svého účtu RapidPro WhatsApp."
 
 msgid "You have connected a Twilio Trial Account which has some restrictions."
 msgstr "Připojili jste zkušební účet Twilio, který má určitá omezení."

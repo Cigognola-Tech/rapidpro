@@ -5289,7 +5289,7 @@ msgstr ""
 msgid "Once you have created your bot, @botfather will provide you with the authentication token to use your bot. Enter that token below."
 msgstr ""
 
-msgid "You can quickly connect TextIt WhatsApp numbers by entering the credentials below. You can find the API endpoint and access token by visiting your TextIt WhatsApp account page."
+msgid "You can quickly connect RapidPro WhatsApp numbers by entering the credentials below. You can find the API endpoint and access token by visiting your RapidPro WhatsApp account page."
 msgstr ""
 
 msgid "You have connected a Twilio Trial Account which has some restrictions."

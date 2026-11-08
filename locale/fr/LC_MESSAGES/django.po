@@ -5280,8 +5280,8 @@ msgstr "Dans votre chat @botfather, saisissez la commande <code>/newbot</code>. 
 msgid "Once you have created your bot, @botfather will provide you with the authentication token to use your bot. Enter that token below."
 msgstr "Une fois que vous avez créé votre bot, @botfather vous fournira le jeton d'authentification pour utiliser votre bot. Entrez ce jeton ci-dessous."
 
-msgid "You can quickly connect TextIt WhatsApp numbers by entering the credentials below. You can find the API endpoint and access token by visiting your TextIt WhatsApp account page."
-msgstr "Vous pouvez connecter rapidement les numéros TextIt WhatsApp en entrant les informations d'identification ci-dessous. Vous pouvez trouver le point de terminaison de l'API et le jeton d'accès en visitant la page de votre compte TextIt WhatsApp."
+msgid "You can quickly connect RapidPro WhatsApp numbers by entering the credentials below. You can find the API endpoint and access token by visiting your RapidPro WhatsApp account page."
+msgstr "Vous pouvez connecter rapidement les numéros RapidPro WhatsApp en entrant les informations d'identification ci-dessous. Vous pouvez trouver le point de terminaison de l'API et le jeton d'accès en visitant la page de votre compte RapidPro WhatsApp."
 
 msgid "You have connected a Twilio Trial Account which has some restrictions."
 msgstr "Vous avez connecté un compte d'essai Twilio qui comporte certaines restrictions."

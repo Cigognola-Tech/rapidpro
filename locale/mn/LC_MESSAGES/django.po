@@ -5259,8 +5259,8 @@ msgstr "@botfather харилцан яриандаа, <code>/newbot</code> гэ�
 msgid "Once you have created your bot, @botfather will provide you with the authentication token to use your bot. Enter that token below."
 msgstr "Ботоо үүсгэсний дараа, @botfather нь баталгаажуулах Токен өгөх болно. Дурдсан токеныг дор оруулна уу."
 
-msgid "You can quickly connect TextIt WhatsApp numbers by entering the credentials below. You can find the API endpoint and access token by visiting your TextIt WhatsApp account page."
-msgstr "TextIt WhatsApp дугааруудыг доор байрлах талбарт итгэмжлэлээ оруулснаар холбох боломжтой. Та өөрийн API төгсгөлийн цэг болон баталгаажуулах токеноо TextIt WhatsApp акаунт хуудсанаасаа олж болно."
+msgid "You can quickly connect RapidPro WhatsApp numbers by entering the credentials below. You can find the API endpoint and access token by visiting your RapidPro WhatsApp account page."
+msgstr "RapidPro WhatsApp дугааруудыг доор байрлах талбарт итгэмжлэлээ оруулснаар холбох боломжтой. Та өөрийн API төгсгөлийн цэг болон баталгаажуулах токеноо RapidPro WhatsApp акаунт хуудсанаасаа олж болно."
 
 msgid "You have connected a Twilio Trial Account which has some restrictions."
 msgstr "Та хязгаарлалттай Twilio Үнэгүй Акаунтаа холбосон байна."
