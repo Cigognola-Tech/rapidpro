@@ -1,0 +1,65 @@
+# VCS / IDE
+.git
+.github
+.vscode
+.claude
+.idea
+*.md
+!README.md
+
+# Local Python / Node
+.venv
+venv
+__pycache__
+**/__pycache__
+*.py[cod]
+*.so
+.ruff_cache
+.coverage
+coverage.xml
+htmlcov
+node_modules
+.yarn
+.npm
+
+# Generated / local runtime
+sitestatic
+celerybeat-schedule
+celerybeat-schedule.db
+screenshots
+deploy
+.env
+.envrc
+.direnv
+.devcontainer
+
+# Local-only settings (image uses settings_docker.py)
+temba/settings.py
+
+# Media uploads (keep small fixtures if present; skip large dirs)
+media/apks
+media/avatars
+media/contacts
+media/csv_imports
+media/contact_imports
+media/org_imports
+media/flow
+media/messages
+media/orgs
+media/recordings
+media/test_orgs
+media/tmp
+media/attachments
+media/blog
+media/emails
+
+# Tests / tooling not needed in image
+**/tests
+**/tests.py
+test-data
+code_check.py
+pre-commit.sh
+post-commit.sh
+.babelrc
+.codecov.yml
+.prettierrc
