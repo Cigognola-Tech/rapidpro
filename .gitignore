@@ -13,7 +13,10 @@ venv
 coverage.xml
 celerybeat-schedule.db
 celerybeat-schedule
-deploy
+# Ignore local deploy artifacts; keep EB Dockerrun templates tracked
+deploy/*
+!deploy/eb/
+!deploy/eb/**
 fabfile.py
 node_modules
 screenshots
