@@ -62,12 +62,46 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate configuration
+        run: |
+          missing=0
+          require_var() {
+            local name="$1" value="$2"
+            if [ -z "${value}" ]; then
+              echo "::error::Missing GitHub Actions variable: ${name}"
+              missing=1
+            else
+              echo "OK: ${name}"
+            fi
+          }
+          require_secret() {
+            local name="$1" value="$2"
+            if [ -z "${value}" ]; then
+              echo "::error::Missing GitHub Actions secret: ${name}"
+              missing=1
+            else
+              echo "OK: ${name} (set)"
+            fi
+          }
+          require_var AWS_REGION "${{ vars.AWS_REGION }}"
+          require_var AWS_ACCOUNT_ID "${{ vars.AWS_ACCOUNT_ID }}"
+          require_var ECR_REPOSITORY "${{ vars.ECR_REPOSITORY }}"
+          require_var EB_APPLICATION_NAME "${{ vars.EB_APPLICATION_NAME }}"
+          require_var EB_ENV_WEB "${{ vars.EB_ENV_WEB }}"
+          require_var EB_ENV_CELERY "${{ vars.EB_ENV_CELERY }}"
+          require_secret AWS_ACCESS_KEY_ID "${{ secrets.AWS_ACCESS_KEY_ID }}"
+          require_secret AWS_SECRET_ACCESS_KEY "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
+          if [ "${missing}" -ne 0 ]; then
+            echo "::error::Set the variables/secrets above under Settings → Secrets and variables → Actions, then re-run."
+            exit 1
+          fi
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Login to Amazon ECR
         id: ecr
@@ -117,7 +151,7 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Resolve environment name
         id: target
