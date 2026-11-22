@@ -1,0 +1,242 @@
+# Deploy RapidPro to AWS Elastic Beanstalk via ECR (production branch only).
+#
+# Required GitHub repository variables (Settings → Secrets and variables → Actions → Variables):
+#   AWS_REGION            e.g. us-east-1
+#   AWS_ACCOUNT_ID        12-digit AWS account ID (ECR registry host)
+#   ECR_REPOSITORY        e.g. rapidpro
+#   EB_APPLICATION_NAME   Elastic Beanstalk application name
+#   EB_ENV_WEB            e.g. rapidpro-production-rapidpro-web
+#   EB_ENV_CELERY         e.g. rapidpro-production-rapidpro-celery
+#
+# Required GitHub repository secrets:
+#   AWS_ACCESS_KEY_ID      IAM user access key ID
+#   AWS_SECRET_ACCESS_KEY  IAM user secret access key
+#
+# IAM user permissions (minimum):
+#   - ecr:GetAuthorizationToken
+#   - ecr:BatchCheckLayerAvailability, ecr:CompleteLayerUpload, ecr:InitiateLayerUpload,
+#     ecr:PutImage, ecr:UploadLayerPart, ecr:BatchGetImage, ecr:GetDownloadUrlForLayer
+#     (scoped to the ECR repository)
+#   - s3:PutObject, s3:GetObject, s3:ListBucket on the EB application versions bucket
+#   - elasticbeanstalk:CreateApplicationVersion, elasticbeanstalk:UpdateEnvironment,
+#     elasticbeanstalk:DescribeEnvironments, elasticbeanstalk:DescribeEvents,
+#     elasticbeanstalk:DescribeApplicationVersions
+#   - iam:PassRole only if your EB deploy path requires it
+#
+# EB instance profile on both environments must allow ECR pull
+# (ecr:GetAuthorizationToken + BatchGetImage / GetDownloadUrlForLayer).
+#
+# App runtime env vars (SECRET_KEY, DATABASE_URL, REDIS_URL, etc.) are configured
+# on the EB environments themselves — not in this workflow.
+
+name: Deploy Production
+
+on:
+  push:
+    branches:
+      - production
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+  EB_APPLICATION_NAME: ${{ vars.EB_APPLICATION_NAME }}
+  EB_ENV_WEB: ${{ vars.EB_ENV_WEB }}
+  EB_ENV_CELERY: ${{ vars.EB_ENV_CELERY }}
+
+jobs:
+  build-and-push:
+    name: Build and push image
+    runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.meta.outputs.image }}
+      version_label: ${{ steps.meta.outputs.version_label }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Image metadata
+        id: meta
+        run: |
+          IMAGE="${{ env.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPOSITORY }}"
+          SHORT_SHA="${GITHUB_SHA::12}"
+          echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
+          echo "version_label=rp-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "tags=${IMAGE}:${GITHUB_SHA},${IMAGE}:production" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    name: Deploy to Elastic Beanstalk
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: web
+            env_name_var: EB_ENV_WEB
+            source_dir: deploy/eb/web
+          - name: celery
+            env_name_var: EB_ENV_CELERY
+            source_dir: deploy/eb/celery
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Resolve environment name
+        id: target
+        run: |
+          case "${{ matrix.env_name_var }}" in
+            EB_ENV_WEB) ENV_NAME="${{ env.EB_ENV_WEB }}" ;;
+            EB_ENV_CELERY) ENV_NAME="${{ env.EB_ENV_CELERY }}" ;;
+            *) echo "Unknown env_name_var"; exit 1 ;;
+          esac
+          echo "env_name=${ENV_NAME}" >> "$GITHUB_OUTPUT"
+          echo "version_label=${{ needs.build-and-push.outputs.version_label }}-${{ matrix.name }}" >> "$GITHUB_OUTPUT"
+
+      - name: Package Dockerrun bundle
+        env:
+          ECR_IMAGE: ${{ needs.build-and-push.outputs.image }}:${{ github.sha }}
+        run: |
+          WORKDIR=$(mktemp -d)
+          sed "s|\${ECR_IMAGE}|${ECR_IMAGE}|g" \
+            "${{ matrix.source_dir }}/Dockerrun.aws.json" > "${WORKDIR}/Dockerrun.aws.json"
+          (cd "${WORKDIR}" && zip -q "${GITHUB_WORKSPACE}/${{ matrix.name }}.zip" Dockerrun.aws.json)
+          echo "Bundled ${{ matrix.name }}.zip with image ${ECR_IMAGE}"
+          cat "${WORKDIR}/Dockerrun.aws.json"
+
+      - name: Upload version to S3 and create application version
+        id: s3
+        run: |
+          ACCOUNT_ID="${{ env.AWS_ACCOUNT_ID }}"
+          REGION="${{ env.AWS_REGION }}"
+          APP="${{ env.EB_APPLICATION_NAME }}"
+          VERSION="${{ steps.target.outputs.version_label }}"
+          BUCKET="elasticbeanstalk-${REGION}-${ACCOUNT_ID}"
+          KEY="${APP}/${VERSION}.zip"
+
+          aws s3 cp "${{ matrix.name }}.zip" "s3://${BUCKET}/${KEY}"
+
+          aws elasticbeanstalk create-application-version \
+            --application-name "${APP}" \
+            --version-label "${VERSION}" \
+            --description "Deploy ${{ github.sha }} (${{ matrix.name }}) from ${{ github.ref_name }}" \
+            --source-bundle "S3Bucket=${BUCKET},S3Key=${KEY}" \
+            --process
+
+          # Wait until EB finishes processing the source bundle
+          for i in $(seq 1 30); do
+            STATUS=$(aws elasticbeanstalk describe-application-versions \
+              --application-name "${APP}" \
+              --version-labels "${VERSION}" \
+              --query 'ApplicationVersions[0].Status' \
+              --output text)
+            echo "Application version ${VERSION} status: ${STATUS}"
+            if [ "${STATUS}" = "PROCESSED" ]; then
+              break
+            fi
+            if [ "${STATUS}" = "FAILED" ]; then
+              echo "Application version processing failed"
+              exit 1
+            fi
+            sleep 5
+          done
+          if [ "${STATUS}" != "PROCESSED" ]; then
+            echo "Timed out waiting for application version ${VERSION} to process"
+            exit 1
+          fi
+
+          echo "bucket=${BUCKET}" >> "$GITHUB_OUTPUT"
+          echo "key=${KEY}" >> "$GITHUB_OUTPUT"
+
+      - name: Update environment
+        run: |
+          aws elasticbeanstalk update-environment \
+            --application-name "${{ env.EB_APPLICATION_NAME }}" \
+            --environment-name "${{ steps.target.outputs.env_name }}" \
+            --version-label "${{ steps.target.outputs.version_label }}"
+
+      - name: Wait for environment Ready
+        env:
+          ENV_NAME: ${{ steps.target.outputs.env_name }}
+          EXPECTED_VERSION: ${{ steps.target.outputs.version_label }}
+          TIMEOUT_SECONDS: "1200"
+        run: |
+          set -euo pipefail
+          START=$(date +%s)
+          while true; do
+            NOW=$(date +%s)
+            ELAPSED=$((NOW - START))
+            if [ "${ELAPSED}" -ge "${TIMEOUT_SECONDS}" ]; then
+              echo "Timed out waiting for ${ENV_NAME} after ${TIMEOUT_SECONDS}s"
+              aws elasticbeanstalk describe-events \
+                --environment-name "${ENV_NAME}" \
+                --max-items 20
+              exit 1
+            fi
+
+            read -r STATUS HEALTH HEALTH_STATUS VERSION < <(
+              aws elasticbeanstalk describe-environments \
+                --environment-names "${ENV_NAME}" \
+                --query 'Environments[0].[Status,Health,HealthStatus,VersionLabel]' \
+                --output text
+            )
+
+            echo "[${ELAPSED}s] ${ENV_NAME}: Status=${STATUS} Health=${HEALTH} HealthStatus=${HEALTH_STATUS} Version=${VERSION}"
+
+            if [ "${STATUS}" = "Ready" ] && [ "${VERSION}" = "${EXPECTED_VERSION}" ]; then
+              if [ "${HEALTH}" = "Red" ] || [ "${HEALTH_STATUS}" = "Severe" ]; then
+                echo "Environment ${ENV_NAME} became Ready but unhealthy (Health=${HEALTH}, HealthStatus=${HEALTH_STATUS})"
+                aws elasticbeanstalk describe-events \
+                  --environment-name "${ENV_NAME}" \
+                  --max-items 30
+                exit 1
+              fi
+              # Green is ideal; Yellow/Grey is acceptable for worker envs without HTTP checks
+              echo "Environment ${ENV_NAME} is Ready on ${EXPECTED_VERSION} (Health=${HEALTH}, HealthStatus=${HEALTH_STATUS})"
+              exit 0
+            fi
+
+            if [ "${STATUS}" = "Terminated" ] || [ "${STATUS}" = "Terminating" ]; then
+              echo "Environment ${ENV_NAME} is ${STATUS}"
+              exit 1
+            fi
+
+            sleep 20
+          done
