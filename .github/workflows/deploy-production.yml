@@ -1,14 +1,15 @@
 # Deploy RapidPro to AWS Elastic Beanstalk via ECR (production branch only).
 #
-# Required GitHub repository variables (Settings → Secrets and variables → Actions → Variables):
+# Required GitHub Environment "production" variables
+# (Settings → Environments → production → Environment variables):
 #   AWS_REGION            e.g. us-east-1
 #   AWS_ACCOUNT_ID        12-digit AWS account ID (ECR registry host)
-#   ECR_REPOSITORY        e.g. rapidpro
+#   ECR_REPOSITORY        e.g. rapidpro-production/rapidpro
 #   EB_APPLICATION_NAME   Elastic Beanstalk application name
 #   EB_ENV_WEB            e.g. rapidpro-production-rapidpro-web
 #   EB_ENV_CELERY         e.g. rapidpro-production-rapidpro-celery
 #
-# Required GitHub repository secrets:
+# Required GitHub Environment "production" secrets:
 #   AWS_ACCESS_KEY_ID      IAM user access key ID
 #   AWS_SECRET_ACCESS_KEY  IAM user secret access key
 #
@@ -43,18 +44,18 @@ concurrency:
   group: deploy-production
   cancel-in-progress: false
 
-env:
-  AWS_REGION: ${{ vars.AWS_REGION }}
-  AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
-  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
-  EB_APPLICATION_NAME: ${{ vars.EB_APPLICATION_NAME }}
-  EB_ENV_WEB: ${{ vars.EB_ENV_WEB }}
-  EB_ENV_CELERY: ${{ vars.EB_ENV_CELERY }}
-
 jobs:
   build-and-push:
     name: Build and push image
     runs-on: ubuntu-latest
+    environment: production
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+      ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+      EB_APPLICATION_NAME: ${{ vars.EB_APPLICATION_NAME }}
+      EB_ENV_WEB: ${{ vars.EB_ENV_WEB }}
+      EB_ENV_CELERY: ${{ vars.EB_ENV_CELERY }}
     outputs:
       image: ${{ steps.meta.outputs.image }}
       version_label: ${{ steps.meta.outputs.version_label }}
@@ -68,7 +69,7 @@ jobs:
           require_var() {
             local name="$1" value="$2"
             if [ -z "${value}" ]; then
-              echo "::error::Missing GitHub Actions variable: ${name}"
+              echo "::error::Missing GitHub Environment variable (production): ${name}"
               missing=1
             else
               echo "OK: ${name}"
@@ -77,7 +78,7 @@ jobs:
           require_secret() {
             local name="$1" value="$2"
             if [ -z "${value}" ]; then
-              echo "::error::Missing GitHub Actions secret: ${name}"
+              echo "::error::Missing GitHub Environment secret (production): ${name}"
               missing=1
             else
               echo "OK: ${name} (set)"
@@ -92,7 +93,7 @@ jobs:
           require_secret AWS_ACCESS_KEY_ID "${{ secrets.AWS_ACCESS_KEY_ID }}"
           require_secret AWS_SECRET_ACCESS_KEY "${{ secrets.AWS_SECRET_ACCESS_KEY }}"
           if [ "${missing}" -ne 0 ]; then
-            echo "::error::Set the variables/secrets above under Settings → Secrets and variables → Actions, then re-run."
+            echo "::error::Set the variables/secrets above under Settings → Environments → production, then re-run."
             exit 1
           fi
 
@@ -132,6 +133,14 @@ jobs:
     name: Deploy to Elastic Beanstalk
     needs: build-and-push
     runs-on: ubuntu-latest
+    environment: production
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      AWS_ACCOUNT_ID: ${{ vars.AWS_ACCOUNT_ID }}
+      ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+      EB_APPLICATION_NAME: ${{ vars.EB_APPLICATION_NAME }}
+      EB_ENV_WEB: ${{ vars.EB_ENV_WEB }}
+      EB_ENV_CELERY: ${{ vars.EB_ENV_CELERY }}
     strategy:
       fail-fast: false
       matrix:
