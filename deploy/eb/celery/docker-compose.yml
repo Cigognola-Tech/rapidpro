@@ -1,0 +1,13 @@
+# Used by Elastic Beanstalk Docker Compose platform branches.
+# Image URI is substituted at deploy time (${ECR_IMAGE}).
+services:
+  celery:
+    image: "${ECR_IMAGE}"
+    command: ["celery"]
+    restart: unless-stopped
+    # EB injects environment properties into the container automatically.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

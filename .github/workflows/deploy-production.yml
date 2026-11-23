@@ -178,14 +178,19 @@ jobs:
           ECR_IMAGE: ${{ needs.build-and-push.outputs.image }}:${{ github.sha }}
         run: |
           WORKDIR=$(mktemp -d)
-          # Include Dockerrun plus any .ebextensions / .platform from the source dir
+          # Include Dockerrun / compose plus .ebextensions / .platform from the source dir
           cp -R "${{ matrix.source_dir }}/." "${WORKDIR}/"
-          sed "s|\${ECR_IMAGE}|${ECR_IMAGE}|g" \
-            "${{ matrix.source_dir }}/Dockerrun.aws.json" > "${WORKDIR}/Dockerrun.aws.json"
+          # Substitute image URI in Dockerrun.aws.json and docker-compose.yml
+          while IFS= read -r -d '' file; do
+            sed -i "s|\${ECR_IMAGE}|${ECR_IMAGE}|g" "${file}"
+          done < <(find "${WORKDIR}" \( -name 'Dockerrun.aws.json' -o -name 'docker-compose.yml' \) -print0)
           (cd "${WORKDIR}" && zip -qr "${GITHUB_WORKSPACE}/${{ matrix.name }}.zip" .)
           echo "Bundled ${{ matrix.name }}.zip with image ${ECR_IMAGE}"
           unzip -l "${GITHUB_WORKSPACE}/${{ matrix.name }}.zip"
-          cat "${WORKDIR}/Dockerrun.aws.json"
+          echo "--- Dockerrun.aws.json ---"
+          cat "${WORKDIR}/Dockerrun.aws.json" 2>/dev/null || true
+          echo "--- docker-compose.yml ---"
+          cat "${WORKDIR}/docker-compose.yml" 2>/dev/null || true
 
       - name: Upload version to S3 and create application version
         id: s3
