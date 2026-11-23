@@ -155,6 +155,8 @@ else:
     }
 
 CELERY_BROKER_URL = _redis_url
+# Container runs as non-root; keep beat's shelve DB off the read-only-ish /app tree
+CELERY_BEAT_SCHEDULE_FILENAME = os.environ.get("CELERY_BEAT_SCHEDULE_FILENAME", "/tmp/celerybeat-schedule")
 
 # -----------------------------------------------------------------------------------
 # Compression (less via project node_modules)

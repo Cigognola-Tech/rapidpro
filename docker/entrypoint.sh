@@ -24,8 +24,12 @@ case "$ACTION" in
       echo "ERROR: REDIS_URL is not set in the container environment" >&2
       exit 1
     fi
-    echo "Starting RapidPro celery worker (broker host from REDIS_URL)..."
-    exec celery -A temba worker -E -B --loglevel="${CELERY_LOGLEVEL:-INFO}"
+    # Beat persists schedule via shelve; /app is not writable for user temba.
+    BEAT_SCHEDULE="${CELERY_BEAT_SCHEDULE_FILENAME:-/tmp/celerybeat-schedule}"
+    echo "Starting RapidPro celery worker (broker host from REDIS_URL, beat schedule ${BEAT_SCHEDULE})..."
+    exec celery -A temba worker -E -B \
+      --schedule="${BEAT_SCHEDULE}" \
+      --loglevel="${CELERY_LOGLEVEL:-INFO}"
     ;;
   *)
     exec "$@"
