@@ -38,6 +38,8 @@ ALLOWED_HOSTS = [h.strip() for h in os.environ.get("ALLOWED_HOSTS", "*").split("
 
 BRAND["domain"] = _domain
 BRAND["hosts"] = ALLOWED_HOSTS if ALLOWED_HOSTS != ["*"] else [_domain]
+# Public index redirects here (see temba.public.views.IndexView)
+BRAND["redirect"] = LOGIN_URL
 
 # Elastic Beanstalk / ALB terminate TLS and forward HTTP to the container
 USE_X_FORWARDED_HOST = True
@@ -47,8 +49,21 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 DATA_UPLOAD_MAX_MEMORY_SIZE = 25 * 1024 * 1024  # 25MB
 FILE_UPLOAD_MAX_MEMORY_SIZE = 25 * 1024 * 1024  # 25MB
 
-# Answer load-balancer probes before SessionMiddleware (Redis-backed cached_db)
-MIDDLEWARE = ("temba.middleware.HealthCheckMiddleware",) + tuple(MIDDLEWARE)
+# Health before sessions; WhiteNoise after Security so gunicorn can serve /sitestatic/
+# (DEBUG=False does not serve STATIC_ROOT, and EB nginx only reverse-proxies to the app).
+_mw = [m for m in MIDDLEWARE if m != "django.middleware.security.SecurityMiddleware"]
+MIDDLEWARE = (
+    "temba.middleware.HealthCheckMiddleware",
+    "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
+) + tuple(_mw)
+
+# Serve collected static (including django-compressor CACHE/) from STATIC_ROOT
+STORAGES = {
+    **STORAGES,
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
+}
+WHITENOISE_MAX_AGE = 60 * 60 * 24 * 7  # 1 week
 
 STORAGE_URL = os.environ.get("STORAGE_URL", f"https://{_domain}/media")
 
