@@ -1,11 +1,15 @@
 # Used by Elastic Beanstalk Docker Compose platform branches.
 # Image URI is substituted at deploy time (${ECR_IMAGE}).
+#
+# EB writes environment properties to a sibling `.env` file. Compose does NOT
+# inject that into containers unless we reference it via env_file.
 services:
   celery:
     image: "${ECR_IMAGE}"
     command: ["celery"]
     restart: unless-stopped
-    # EB injects environment properties into the container automatically.
+    env_file:
+      - .env
     logging:
       driver: json-file
       options:

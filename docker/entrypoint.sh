@@ -20,7 +20,11 @@ case "$ACTION" in
       --error-logfile "-"
     ;;
   celery)
-    echo "Starting RapidPro celery worker..."
+    if [ -z "${REDIS_URL:-}" ]; then
+      echo "ERROR: REDIS_URL is not set in the container environment" >&2
+      exit 1
+    fi
+    echo "Starting RapidPro celery worker (broker host from REDIS_URL)..."
     exec celery -A temba worker -E -B --loglevel="${CELERY_LOGLEVEL:-INFO}"
     ;;
   *)
