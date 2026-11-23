@@ -9,9 +9,11 @@ case "$ACTION" in
       echo "Running database migrations..."
       python manage.py migrate --noinput
     fi
-    echo "Starting RapidPro webapp (gunicorn)..."
+    # Keep in sync with Dockerfile EXPOSE and Dockerrun ContainerPort (EB nginx upstream).
+    WEB_PORT="${PORT:-8000}"
+    echo "Starting RapidPro webapp (gunicorn) on 0.0.0.0:${WEB_PORT}..."
     exec gunicorn temba.wsgi:application \
-      --bind "0.0.0.0:${PORT:-8000}" \
+      --bind "0.0.0.0:${WEB_PORT}" \
       --workers "${WEB_CONCURRENCY:-3}" \
       --timeout "${GUNICORN_TIMEOUT:-120}" \
       --access-logfile "-" \

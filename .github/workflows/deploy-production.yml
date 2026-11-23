@@ -178,10 +178,13 @@ jobs:
           ECR_IMAGE: ${{ needs.build-and-push.outputs.image }}:${{ github.sha }}
         run: |
           WORKDIR=$(mktemp -d)
+          # Include Dockerrun plus any .ebextensions / .platform from the source dir
+          cp -R "${{ matrix.source_dir }}/." "${WORKDIR}/"
           sed "s|\${ECR_IMAGE}|${ECR_IMAGE}|g" \
             "${{ matrix.source_dir }}/Dockerrun.aws.json" > "${WORKDIR}/Dockerrun.aws.json"
-          (cd "${WORKDIR}" && zip -q "${GITHUB_WORKSPACE}/${{ matrix.name }}.zip" Dockerrun.aws.json)
+          (cd "${WORKDIR}" && zip -qr "${GITHUB_WORKSPACE}/${{ matrix.name }}.zip" .)
           echo "Bundled ${{ matrix.name }}.zip with image ${ECR_IMAGE}"
+          unzip -l "${GITHUB_WORKSPACE}/${{ matrix.name }}.zip"
           cat "${WORKDIR}/Dockerrun.aws.json"
 
       - name: Upload version to S3 and create application version

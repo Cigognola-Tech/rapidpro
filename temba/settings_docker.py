@@ -39,6 +39,17 @@ ALLOWED_HOSTS = [h.strip() for h in os.environ.get("ALLOWED_HOSTS", "*").split("
 BRAND["domain"] = _domain
 BRAND["hosts"] = ALLOWED_HOSTS if ALLOWED_HOSTS != ["*"] else [_domain]
 
+# Elastic Beanstalk / ALB terminate TLS and forward HTTP to the container
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# Match nginx client_max_body_size (deploy/eb/web/.platform/nginx)
+DATA_UPLOAD_MAX_MEMORY_SIZE = 25 * 1024 * 1024  # 25MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 25 * 1024 * 1024  # 25MB
+
+# Answer load-balancer probes before SessionMiddleware (Redis-backed cached_db)
+MIDDLEWARE = ("temba.middleware.HealthCheckMiddleware",) + tuple(MIDDLEWARE)
+
 STORAGE_URL = os.environ.get("STORAGE_URL", f"https://{_domain}/media")
 
 MAILROOM_URL = os.environ.get("MAILROOM_URL")

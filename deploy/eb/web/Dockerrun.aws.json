@@ -8,5 +8,11 @@
     {
       "ContainerPort": 8000
     }
+  ],
+  "Environment": [
+    {
+      "Name": "PORT",
+      "Value": "8000"
+    }
   ]
 }

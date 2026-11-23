@@ -4,9 +4,25 @@ import traceback
 from io import StringIO
 
 from django.conf import settings
+from django.http import HttpResponse
 from django.utils import timezone, translation
 
 from temba.orgs.models import Org, User
+
+
+class HealthCheckMiddleware:
+    """
+    Short-circuit /health before sessions/cache so EB/ALB probes stay green
+    even when Redis is briefly unavailable.
+    """
+
+    def __init__(self, get_response=None):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if request.path in ("/health", "/health/"):
+            return HttpResponse("ok", content_type="text/plain")
+        return self.get_response(request)
 
 
 class ExceptionMiddleware:
