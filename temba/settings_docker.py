@@ -22,6 +22,15 @@
 
 import os
 import shutil
+import warnings
+
+# twilio 6.24 / twython 3.5 / vonage 2.5 ship invalid escapes (\*, \.) that Python 3.12
+# flags at import time. Pins are required for RapidPro channel APIs; suppress noise only.
+warnings.filterwarnings(
+    "ignore",
+    message=r"invalid escape sequence",
+    category=SyntaxWarning,
+)
 
 import dj_database_url
 
