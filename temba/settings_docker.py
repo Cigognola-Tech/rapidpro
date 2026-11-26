@@ -120,35 +120,37 @@ _storages = {
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
 }
 if AWS_STORAGE_BUCKET_NAME:
+    # default_acl=None: do not send canned ACLs (needs s3:PutObjectAcl and often fails).
+    # Public readability comes from the media bucket policy (orgs/*/media/*, attachments/*).
     _s3_opts = {
         "bucket_name": AWS_STORAGE_BUCKET_NAME,
         "region_name": AWS_S3_REGION_NAME,
         "file_overwrite": False,
+        "default_acl": None,
     }
     _storages.update(
         {
             # Contact/message/results exports (celery writes, web streams via signed URL)
             "default": {
                 "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
-                "OPTIONS": {**_s3_opts, "default_acl": "private", "querystring_auth": True},
+                "OPTIONS": {**_s3_opts, "querystring_auth": True},
             },
             # Flow editor uploads / public attachments (channels must fetch these URLs)
             "public": {
                 "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
                 "OPTIONS": {
                     **_s3_opts,
-                    "default_acl": "public-read",
                     "querystring_auth": False,
                     "custom_domain": _s3_bucket_domain,
                 },
             },
             "archives": {
                 "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
-                "OPTIONS": {**_s3_opts, "default_acl": "private", "querystring_auth": True},
+                "OPTIONS": {**_s3_opts, "querystring_auth": True},
             },
             "logs": {
                 "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
-                "OPTIONS": {**_s3_opts, "default_acl": "private", "querystring_auth": True},
+                "OPTIONS": {**_s3_opts, "querystring_auth": True},
             },
         }
     )
