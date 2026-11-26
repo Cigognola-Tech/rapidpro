@@ -16,7 +16,12 @@
 #   MAILROOM_AUTH_TOKEN        Mailroom auth token
 #   ELASTICSEARCH_URL          Elasticsearch URL
 #   STORAGE_URL                public media/base URL
+#   AWS_STORAGE_BUCKET_NAME    S3 media/sessions bucket (archives + IAM chain)
+#   AWS_REGION / AWS_DEFAULT_REGION  S3 region (IAM credential chain on EB)
+#   AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY  optional; omit to use instance role
 #   SEND_EMAILS                default "true" in production; set "false" to disable
+#   EMAIL_HOST / EMAIL_PORT / EMAIL_HOST_USER / EMAIL_HOST_PASSWORD / EMAIL_USE_TLS
+#   DEFAULT_FROM_EMAIL / FLOW_FROM_EMAIL
 #   RUN_MIGRATE                used by entrypoint (not Django); default "true"
 #   RAPIDPRO_BUILD             set to "1" only during image build (locmem cache)
 # -----------------------------------------------------------------------------------
@@ -43,6 +48,40 @@ DEBUG = False
 
 # Production sends email by default; set SEND_EMAILS=false to disable.
 SEND_EMAILS = os.environ.get("SEND_EMAILS", "true").lower() in ("1", "true", "yes")
+
+# SMTP — required when SEND_EMAILS is true. Placeholder Gmail creds in settings_common
+# fail auth; without EMAIL_HOST use the console backend so invite tasks don't error.
+DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", DEFAULT_FROM_EMAIL)
+FLOW_FROM_EMAIL = os.environ.get("FLOW_FROM_EMAIL", FLOW_FROM_EMAIL)
+if os.environ.get("EMAIL_HOST"):
+    EMAIL_HOST = os.environ["EMAIL_HOST"]
+    EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+    EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+    EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+    EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "true").lower() in ("1", "true", "yes")
+else:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+# S3 — Mailroom stores flow session output on S3; contact history loads it via boto3.
+# settings_common ships dummy keys that block the EB instance-role credential chain.
+_aws_key = os.environ.get("AWS_ACCESS_KEY_ID", "")
+_aws_secret = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
+AWS_ACCESS_KEY_ID = _aws_key
+AWS_SECRET_ACCESS_KEY = _aws_secret
+AWS_S3_REGION_NAME = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "us-east-1"
+AWS_STORAGE_BUCKET_NAME = os.environ.get("AWS_STORAGE_BUCKET_NAME", "")
+if AWS_STORAGE_BUCKET_NAME:
+    STORAGES = {
+        **STORAGES,
+        "archives": {
+            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+            "OPTIONS": {"bucket_name": AWS_STORAGE_BUCKET_NAME},
+        },
+        "logs": {
+            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+            "OPTIONS": {"bucket_name": AWS_STORAGE_BUCKET_NAME},
+        },
+    }
 
 SECRET_KEY = os.environ.get("SECRET_KEY", "build-only-insecure-secret-key")
 

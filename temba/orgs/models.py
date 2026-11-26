@@ -1533,7 +1533,8 @@ class Invitation(SmartModel):
         """
         from .tasks import send_invitation_email_task
 
-        send_invitation_email_task(self.id)
+        # Queue after commit so SMTP failures cannot 500 the invite request.
+        on_transaction_commit(lambda: send_invitation_email_task.delay(self.id))
 
     def send_email(self):
         # no=op if we do not know the email

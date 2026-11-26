@@ -26,8 +26,14 @@ def client():  # pragma: no cover
                 aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
             )
         else:
+            # Empty/missing keys → IAM instance role / shared credential chain (EB).
             session = boto3.Session()
-        _s3_client = session.client("s3", config=Config(retries={"max_attempts": 3}))
+        region = getattr(settings, "AWS_S3_REGION_NAME", None) or None
+        _s3_client = session.client(
+            "s3",
+            region_name=region,
+            config=Config(retries={"max_attempts": 3}),
+        )
 
     return _s3_client
 

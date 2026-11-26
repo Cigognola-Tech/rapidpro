@@ -1046,9 +1046,8 @@ class FlowSession(models.Model):
         if self.output_url:
             return json.loads(s3.get_body(self.output_url))
 
-        # otherwise, read it from our DB field
-        else:
-            return self.output
+        # otherwise, read it from our DB field (may be None on partial/legacy rows)
+        return self.output or {}
 
     def delete(self):
         for run in self.runs.all():

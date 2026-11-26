@@ -772,6 +772,11 @@ class ContactCRUDL(SmartCRUDL):
             else:
                 after = timestamp_to_datetime(after)
 
+            # UI refresh with an empty chat sends after≈epoch (-1000µs). Clamp so we
+            # do not scan every session since 1970 (expensive when output lives on S3).
+            if recent_only and after < before - timedelta(days=90):
+                after = before - timedelta(days=90)
+
             # keep looking further back until we get at least 20 items
             history = []
             fetch_before = before
