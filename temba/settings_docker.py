@@ -62,26 +62,15 @@ if os.environ.get("EMAIL_HOST"):
 else:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
-# S3 — Mailroom stores flow session output on S3; contact history loads it via boto3.
-# settings_common ships dummy keys that block the EB instance-role credential chain.
+# S3 — EB containers have ephemeral disks. Exports (default) and flow media (public)
+# must live on S3 shared with Mailroom/Courier. Empty keys → IAM instance role.
 _aws_key = os.environ.get("AWS_ACCESS_KEY_ID", "")
 _aws_secret = os.environ.get("AWS_SECRET_ACCESS_KEY", "")
 AWS_ACCESS_KEY_ID = _aws_key
 AWS_SECRET_ACCESS_KEY = _aws_secret
 AWS_S3_REGION_NAME = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "us-east-1"
 AWS_STORAGE_BUCKET_NAME = os.environ.get("AWS_STORAGE_BUCKET_NAME", "")
-if AWS_STORAGE_BUCKET_NAME:
-    STORAGES = {
-        **STORAGES,
-        "archives": {
-            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
-            "OPTIONS": {"bucket_name": AWS_STORAGE_BUCKET_NAME},
-        },
-        "logs": {
-            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
-            "OPTIONS": {"bucket_name": AWS_STORAGE_BUCKET_NAME},
-        },
-    }
+AWS_S3_FILE_OVERWRITE = False
 
 SECRET_KEY = os.environ.get("SECRET_KEY", "build-only-insecure-secret-key")
 
@@ -114,14 +103,56 @@ MIDDLEWARE = (
     "whitenoise.middleware.WhiteNoiseMiddleware",
 ) + tuple(_mw)
 
-# Serve collected static (including django-compressor CACHE/) from STATIC_ROOT
-STORAGES = {
+WHITENOISE_MAX_AGE = 60 * 60 * 24 * 7  # 1 week
+
+# Public media base URL (no trailing slash). With S3 this is the bucket URL, not /media on the app.
+_s3_bucket_domain = (
+    f"{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com" if AWS_STORAGE_BUCKET_NAME else ""
+)
+STORAGE_URL = os.environ.get("STORAGE_URL") or (
+    f"https://{_s3_bucket_domain}" if _s3_bucket_domain else f"https://{_domain}/media"
+)
+STORAGE_URL = STORAGE_URL.rstrip("/")
+
+# Serve collected static from STATIC_ROOT; put exports + flow media on S3 when configured.
+_storages = {
     **STORAGES,
     "staticfiles": {"BACKEND": "whitenoise.storage.CompressedStaticFilesStorage"},
 }
-WHITENOISE_MAX_AGE = 60 * 60 * 24 * 7  # 1 week
-
-STORAGE_URL = os.environ.get("STORAGE_URL", f"https://{_domain}/media")
+if AWS_STORAGE_BUCKET_NAME:
+    _s3_opts = {
+        "bucket_name": AWS_STORAGE_BUCKET_NAME,
+        "region_name": AWS_S3_REGION_NAME,
+        "file_overwrite": False,
+    }
+    _storages.update(
+        {
+            # Contact/message/results exports (celery writes, web streams via signed URL)
+            "default": {
+                "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+                "OPTIONS": {**_s3_opts, "default_acl": "private", "querystring_auth": True},
+            },
+            # Flow editor uploads / public attachments (channels must fetch these URLs)
+            "public": {
+                "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+                "OPTIONS": {
+                    **_s3_opts,
+                    "default_acl": "public-read",
+                    "querystring_auth": False,
+                    "custom_domain": _s3_bucket_domain,
+                },
+            },
+            "archives": {
+                "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+                "OPTIONS": {**_s3_opts, "default_acl": "private", "querystring_auth": True},
+            },
+            "logs": {
+                "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+                "OPTIONS": {**_s3_opts, "default_acl": "private", "querystring_auth": True},
+            },
+        }
+    )
+STORAGES = _storages
 
 MAILROOM_URL = os.environ.get("MAILROOM_URL")
 MAILROOM_AUTH_TOKEN = os.environ.get("MAILROOM_AUTH_TOKEN")
