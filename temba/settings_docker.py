@@ -16,6 +16,7 @@
 #   MAILROOM_AUTH_TOKEN        Mailroom auth token
 #   ELASTICSEARCH_URL          Elasticsearch URL
 #   STORAGE_URL                public media/base URL
+#   SEND_EMAILS                default "true" in production; set "false" to disable
 #   RUN_MIGRATE                used by entrypoint (not Django); default "true"
 #   RAPIDPRO_BUILD             set to "1" only during image build (locmem cache)
 # -----------------------------------------------------------------------------------
@@ -39,6 +40,9 @@ warnings.filterwarnings(
 )
 
 DEBUG = False
+
+# Production sends email by default; set SEND_EMAILS=false to disable.
+SEND_EMAILS = os.environ.get("SEND_EMAILS", "true").lower() in ("1", "true", "yes")
 
 SECRET_KEY = os.environ.get("SECRET_KEY", "build-only-insecure-secret-key")
 
