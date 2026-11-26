@@ -91,6 +91,9 @@ ALLOWED_HOSTS = [h.strip() for h in os.environ.get("ALLOWED_HOSTS", "*").split("
 
 BRAND["domain"] = _domain
 BRAND["hosts"] = ALLOWED_HOSTS if ALLOWED_HOSTS != ["*"] else [_domain]
+# Invites/notifications use branding.emails.notifications (not DEFAULT_FROM_EMAIL alone).
+# Must be a Resend-verified address/domain or SMTP will fail once SEND_EMAILS is on.
+BRAND["emails"] = {"notifications": DEFAULT_FROM_EMAIL}
 # Public index redirects here (see temba.public.views.IndexView)
 BRAND["redirect"] = LOGIN_URL
 

@@ -134,10 +134,12 @@ def send_temba_email(subject, text, html, from_email, recipient_list, connection
             send_mail(subject, text, from_email, recipient_list, connection=connection)
     else:  # pragma: no cover
         # just print to console if we aren't meant to send emails
+        # Celery captures print() as WARNING — this is not an SMTP attempt.
         print("------------- Skipping sending email, SEND_EMAILS is False -------------")
         print(f"To: {', '.join(recipient_list)}")
         print(f"From: {from_email}")
         print(f"Subject: {subject}")
+        print(f"EMAIL_HOST={getattr(settings, 'EMAIL_HOST', None)!r} backend={getattr(settings, 'EMAIL_BACKEND', 'smtp')!r}")
         print()
         print(text)
         print("------------------------------------------------------------------------")
